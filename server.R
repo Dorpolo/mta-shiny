@@ -86,9 +86,11 @@ mta_con <- dbConnect(Postgres(),
                                g.game_result,
                                g.location,
                                g.opponent,
-                               g.coach
+                               g.coach,
+                               e.event_id
                         FROM mta_player_con p
                         INNER JOIN mta_games g ON (g.game_id = p.game_id)
+                        LEFT JOIN mta_events e ON (g.game_id = e.game_id AND p.player_name = e.player_name)
                         WHERE g.league = 'League'")
 
   # fetch current league round
@@ -495,7 +497,6 @@ function(input, output, session) {
   # aggregated minutes by player
   output$p_minutes <- renderPlot({
     
-
     g_minutes <- dataPlayers() %>%
       group_by(season,player_name) %>% 
       summarise(games = n_distinct(game_id),
@@ -551,7 +552,8 @@ function(input, output, session) {
   # goal scored - active players
   output$p_goals_active <- renderPlot({
     
-    g_goals <- dataPlayers() %>% filter(is_played == T) %>%
+    g_goals <- dataPlayers() %>% 
+      filter(is_played == T) %>%
       group_by(season,player_name) %>% 
       summarise(goals = sum(!is.na(event_id))) %>% 
       ungroup()
