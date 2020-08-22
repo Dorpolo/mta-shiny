@@ -165,7 +165,7 @@ function(input, output, session) {
                 max_round = max(round))
     
     valueBox(   
-      value = tags$p(paste0('19-20',' (',mta_stats_box$max_round,')'), style = "font-size: 80%;"),
+      value = tags$p(paste0(current_season$season,' (',mta_stats_box$max_round,')'), style = "font-size: 80%;"),
       subtitle = 'Season (Round)', color = box_col
     )
     
