@@ -1,0 +1,13 @@
+name: shiny_mta
+title: shiny_mta
+username:
+account: polo
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1673820
+bundleId: 2737261
+url: https://polo.shinyapps.io/shiny_mta/
+when: 1579343438.36591
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|feature_connections.csv|gg_test.R|global.r|helft.r|init.R|ivy_mixpanel.r|my_query.sql|playground.r|run.R|scraping.py|team_pct.r|update_mta.R|value_connections.csv

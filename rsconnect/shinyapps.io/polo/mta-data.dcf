@@ -1,0 +1,13 @@
+name: mta-data
+title: mta-data
+username:
+account: polo
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1353489
+bundleId: 3339058
+url: https://polo.shinyapps.io/mta-data/
+when: 1593612339.42711
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|global.r|my_query.sql|playground_v2.r|playground.r|run.R|scraping.py|mta_package
