@@ -156,7 +156,9 @@ function(input, output, session) {
 
     mta_stats_box <- games %>% 
       filter(season == current_season$season) %>%
-      mutate(points = case_when(game_result == 'W' ~ 3,game_result == 'L' ~ 0,TRUE ~ 1)) %>%
+      mutate(points = case_when(game_result == 'W' ~ 3,
+                                game_result == 'L' ~ 0,
+                                TRUE ~ 1)) %>%
       summarise(goal_scored = sum(mta_score),
                 goal_conced = sum(opponent_score),
                 league_points = sum(points),
