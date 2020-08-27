@@ -605,10 +605,10 @@ if __name__ == '__main__':
                  ]
 
     # db connection
-    conn = psycopg2.connect("dbname = 'd5m2p6kka0vf8d' \
-                             user = 'fzgxltqkgmaklf' \
-                             password = '6ad610f8f95f1f570ad6c846b68e74f0d692386a8e43d2fce5976f1718e2b779' \
-                             host = 'ec2-184-73-232-93.compute-1.amazonaws.com' \
+    conn = psycopg2.connect("dbname = 'dktq534bum4hj' \
+                             user = 'wwpnsvztdmbvwd' \
+                             password = 'a7935600679ff45222392366093733f1369e9b38029fd6577e8b462d4601930b' \
+                             host = 'ec2-52-22-216-69.compute-1.amazonaws.com' \
                              port = '5432'")
 
     dst_g_cursor = conn.cursor()
@@ -621,7 +621,7 @@ if __name__ == '__main__':
     try:
         values_list_g = [tuple(x) for x in games.values]
         execute_values(dst_g_cursor,
-                       """INSERT INTO mta_games (game_id, season, date, hour, stadium, location,
+                       """INSERT INTO mta.games (game_id, season, date, hour, stadium, location,
                                                 opponent, mta_score, opponent_score, league_name, 
                                                 round, coach, game_url, league, game_type, game_result)
                           VALUES %s
@@ -653,8 +653,8 @@ if __name__ == '__main__':
     try:
         values_list_p = [tuple(x) for x in players.values]
         execute_values(dst_p_cursor,
-                       """INSERT INTO mta_player_con (con_id, game_id, player_number, game_status,
-                                                      player_name, is_captain, sub, is_played, minutes_played)
+                       """INSERT INTO mta.players (con_id, game_id, player_number, game_status,player_name, is_captain,
+                                                   sub, is_played, minutes_played)
                           VALUES %s
                           ON CONFLICT (con_id)
                           DO UPDATE
@@ -681,8 +681,7 @@ if __name__ == '__main__':
         values_list_e = [tuple(x) for x in events.values]
 
         execute_values(dst_e_cursor,
-                       """INSERT INTO "mta_events" (event_id, date, game_id,
-                                                 player_name, event_type, minute)
+                       """INSERT INTO "mta.events" (event_id, date, game_id, player_name, event_type, minute)
                            VALUES %s
                            ON CONFLICT (event_id)
                            DO UPDATE
@@ -702,21 +701,22 @@ if __name__ == '__main__':
 
     print('Task 1 (Update mta_games, mta_player_con, mta_events) -- DONE')
 
-    conn = psycopg2.connect("host = ec2-184-73-232-93.compute-1.amazonaws.com \
-                               port = 5432 \
-                               dbname = d5m2p6kka0vf8d \
-                               user = fzgxltqkgmaklf \
-                               password = 6ad610f8f95f1f570ad6c846b68e74f0d692386a8e43d2fce5976f1718e2b779")
+    # db connection
+    conn = psycopg2.connect("dbname = 'dktq534bum4hj' \
+                             user = 'wwpnsvztdmbvwd' \
+                             password = 'a7935600679ff45222392366093733f1369e9b38029fd6577e8b462d4601930b' \
+                             host = 'ec2-52-22-216-69.compute-1.amazonaws.com' \
+                             port = '5432'")
 
     # getting the game id
     gid = pd.read_sql("""SELECT game_id 
-                         FROM mta_games
+                         FROM mta.games
                          ORDER BY date DESC
                          LIMIT 1;""", conn)['game_id']
 
     for row in gid:
 
-        p_names = pd.read_sql("""SELECT distinct player_name FROM mta_player_con""", conn)
+        p_names = pd.read_sql("""SELECT distinct player_name FROM mta.players""", conn)
 
         Events = MtaEvents(row)
         df = Events.fetch_game_events()
@@ -732,7 +732,7 @@ if __name__ == '__main__':
                 values = [tuple(x) for x in df.values]
 
                 execute_values(cur,
-                               """INSERT INTO events (game_id, date, minute, event_type, player_name, event_name)
+                               """INSERT INTO mta.events (game_id, date, minute, event_type, player_name, event_name)
                                    VALUES %s
                                    ON CONFLICT ON CONSTRAINT events_pkey
                                    DO UPDATE
@@ -742,7 +742,8 @@ if __name__ == '__main__':
                 conn.commit()
                 cur.close()
 
-                print(tabulate(df[['game_id', 'date', 'player_name', 'event_type', 'minute']], headers='keys', tablefmt='psql'))
+                print(tabulate(df[['game_id', 'date', 'player_name', 'event_type', 'minute']],
+                               headers='keys', tablefmt='psql'))
 
             except Exception as ex:
                 print(ex)
