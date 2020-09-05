@@ -474,11 +474,11 @@ class MtaEvents:
     def __init__(self, game_id):
 
         self.gameId = game_id
-        self.conn = psycopg2.connect("host = ec2-184-73-232-93.compute-1.amazonaws.com \
-                                      port = 5432 \
-                                      dbname = d5m2p6kka0vf8d \
-                                      user = fzgxltqkgmaklf \
-                                      password = 6ad610f8f95f1f570ad6c846b68e74f0d692386a8e43d2fce5976f1718e2b779")
+        self.conn = psycopg2.connect("dbname = 'dktq534bum4hj' \
+                                      user = 'wwpnsvztdmbvwd' \
+                                      password = 'a7935600679ff45222392366093733f1369e9b38029fd6577e8b462d4601930b' \
+                                      host = 'ec2-52-22-216-69.compute-1.amazonaws.com' \
+                                      port = '5432'")
 
     def fetch_game_events(self):
 
@@ -493,8 +493,8 @@ class MtaEvents:
                                                g.game_id,
                                                g.date,
                                                g.season
-                               FROM mta_player_con c 
-                               INNER JOIN mta_games g ON (g.game_id = c.game_id) 
+                               FROM mta.players c 
+                               INNER JOIN mta.games g ON (g.game_id = c.game_id) 
                                WHERE c.game_id = '{g_id}'
                                ORDER BY 1 DESC""".format(g_id=self.gameId),
                             self.conn)
@@ -580,9 +580,10 @@ cur_date = date.today()
 cur_hour = now.hour
 cur_minute = now.minute
 
-if __name__ == '__main__' and  cur_date > ng_date and cur_hour > ng_hour and cur_minute > ng_minute:
 
-    Mta = ScrapMta(my_url='https://www.maccabi-tlv.co.il/en/result-fixtures/first-team/results/',n=10)
+if __name__ == '__main__' and cur_date > ng_date and cur_hour > ng_hour and cur_minute > ng_minute:
+
+    Mta = ScrapMta(my_url='https://www.maccabi-tlv.co.il/en/result-fixtures/first-team/results/', n=10)
 
     # config the i parameter in order to get its location in the ordered date list
     # e.g: i == 0 -> the scraped data will be related to the recent match
@@ -601,18 +602,14 @@ if __name__ == '__main__' and  cur_date > ng_date and cur_hour > ng_hour and cur
     l_game_loc = Mta.game_home_away(mta_player_con.game_url[i])
     l_coach = Mta.get_game_coach(mta_player_con.game_url[i])
     l_players_data = Mta.get_players_data(mta_player_con.game_url[i])
-    l_events = Mta.apply_goals_table(l_players_data)
 
     mta_df = mta_df[mta_df['league'] != 'Friendly'].sort_values(by=['date'], ascending=False)
 
-    final_list = [
-                  mta_df.loc[mta_df.game_id == mta_player_con.game_id[i]],
+    final_list = [mta_df.loc[mta_df.game_id == mta_player_con.game_id[i]],
                   mta_game_id_url[i:(i+1)],
                   l_players_data,
                   l_game_loc,
-                  l_coach,
-                  l_events
-                 ]
+                  l_coach]
 
     # db connection
     conn = psycopg2.connect("dbname = 'dktq534bum4hj' \
@@ -626,7 +623,6 @@ if __name__ == '__main__' and  cur_date > ng_date and cur_hour > ng_hour and cur
 
     games = Mta.mta_lego(final_list)[0]
     players = Mta.mta_lego(final_list)[1]
-    events = Mta.mta_lego(final_list)[2]
 
     try:
         values_list_g = [tuple(x) for x in games.values]
@@ -663,8 +659,17 @@ if __name__ == '__main__' and  cur_date > ng_date and cur_hour > ng_hour and cur
     try:
         values_list_p = [tuple(x) for x in players.values]
         execute_values(dst_p_cursor,
-                       """INSERT INTO mta.players (con_id, game_id, player_number, game_status,player_name, is_captain,
-                                                   sub, is_played, minutes_played)
+                       """INSERT INTO mta.players (
+                                   con_id,
+                                   game_id, 
+                                   player_number, 
+                                   game_status,
+                                   player_name,
+                                   is_captain
+                                   sub,
+                                   is_played,
+                                   minutes_played
+                              )
                           VALUES %s
                           ON CONFLICT (con_id)
                           DO UPDATE
@@ -672,44 +677,18 @@ if __name__ == '__main__' and  cur_date > ng_date and cur_hour > ng_hour and cur
                                player_number = excluded.player_number,
                                game_status = excluded.game_status,
                                player_name = excluded.player_name,
-                               is_captain = excluded.is_captain,
+                               is_captain = excluded.is_captain
                                sub = excluded.sub,
                                is_played = excluded.is_played,
-                               minutes_played = excluded.minutes_played""",
+                               minutes_played = excluded.minutes_played
+                               """,
                        values_list_p)
         conn.commit()
         print(tabulate(players, headers='keys', tablefmt='psql'))
         dst_p_cursor.close()
-        print('players_db_ok')
 
     except Exception as ex:
         print(ex)
-
-    try:
-        dst_e_cursor = conn.cursor()
-
-        values_list_e = [tuple(x) for x in events.values]
-
-        execute_values(dst_e_cursor,
-                       """INSERT INTO "mta.events" (event_id, date, game_id, player_name, event_type, minute)
-                           VALUES %s
-                           ON CONFLICT (event_id)
-                           DO UPDATE
-                           SET minute = excluded.minute,
-                               date = excluded.date,
-                               player_name = excluded.player_name,
-                               event_type = excluded.event_type""",
-                       values_list_e)
-        conn.commit()
-        print(tabulate(events, headers='keys', tablefmt='psql'))
-        dst_e_cursor.close()
-
-    except Exception as ex:
-        print(ex)
-
-    conn.close()
-
-    print('Task 1 (Update mta_games, mta_player_con, mta_events) -- DONE')
 
     # db connection
     conn = psycopg2.connect("dbname = 'dktq534bum4hj' \
@@ -739,7 +718,8 @@ if __name__ == '__main__' and  cur_date > ng_date and cur_hour > ng_hour and cur
 
             try:
                 cur = conn.cursor()
-                values = [tuple(x) for x in df.values]
+                values = [tuple(x) for x in df[['game_id', 'date', 'minute', 'event_type',
+                                                'player_name', 'event_name']].values]
 
                 execute_values(cur,
                                """INSERT INTO mta.events (game_id, date, minute, event_type, player_name, event_name)
