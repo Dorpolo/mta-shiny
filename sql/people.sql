@@ -1,0 +1,2 @@
+SELECT *
+FROM mta.people;

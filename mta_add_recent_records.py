@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import datetime
+from datetime import date
 import psycopg2
 from psycopg2.extras import execute_values
 from tabulate import tabulate
@@ -570,7 +571,16 @@ class MtaEvents:
         return output[['game_id', 'date', 'minute', 'event_type', 'player_name', 'event_name']]
 
 
-if __name__ == '__main__':
+ng_date = date(2020, 9, 12)
+ng_hour = 20
+ng_minute = 30
+
+now = datetime.datetime.now()
+cur_date = date.today()
+cur_hour = now.hour
+cur_minute = now.minute
+
+if __name__ == '__main__' and  cur_date > ng_date and cur_hour > ng_hour and cur_minute > ng_minute:
 
     Mta = ScrapMta(my_url='https://www.maccabi-tlv.co.il/en/result-fixtures/first-team/results/',n=10)
 
@@ -750,4 +760,6 @@ if __name__ == '__main__':
 
         conn.close()
         i += 1
+else:
+    print(f'Next game: {ng_date}, {ng_hour}:{ng_minute}')
 

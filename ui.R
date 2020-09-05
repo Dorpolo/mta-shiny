@@ -1,54 +1,35 @@
+source(paste0(getwd(),'/functions.r'))
+
+# required_packages <- c('shinydashboard','shinyWidgets','plotly','shiny','RPostgres','RPostgreSQL','formattable','reshape2')
+# new_packages <- setdiff(required_packages, installed.packages()[, "Package"])
+ 
 # required packages
 {
   if (!require("shinydashboard")) install.packages("shinydashboard")
   if (!require("shinyWidgets")) install.packages("shinyWidgets")
   if (!require("plotly")) install.packages("plotly")
-  
-  library(shinyWidgets)
-  library(shinydashboard)
-  library(shiny)
-  library(RPostgres)
-  library(RPostgreSQL)
-  library(formattable)
-  library(plotly)
 }
+
+lapply(required_packages, require, character.only = TRUE)
 
 # ui configurations
-{
-  status_style <- 'primary'
-}
+status_style <- 'primary'
 
 # DB connection
-{
-  mta_con <- dbConnect(Postgres(),
-                       user     = "fzgxltqkgmaklf",
-                       password = "6ad610f8f95f1f570ad6c846b68e74f0d692386a8e43d2fce5976f1718e2b779",
-                       dbname   = "d5m2p6kka0vf8d",
-                       port     = "5432",
-                       host     = "ec2-184-73-232-93.compute-1.amazonaws.com",
-                       sslmode = 'require')
-}
-
+mta_con <- dbConnect(Postgres(),
+                     user = "wwpnsvztdmbvwd",
+                     password = "a7935600679ff45222392366093733f1369e9b38029fd6577e8b462d4601930b",
+                     dbname = "dktq534bum4hj",
+                     port = "5432",
+                     host = "ec2-52-22-216-69.compute-1.amazonaws.com",
+                     sslmode = 'require')
 # DB calls
-{
-  # fetch all time league games
-  games  = dbGetQuery(mta_con,"SELECT *
-                               FROM mta_games
-                               WHERE league = 'League'")
-  
-  # fetch current league round
-  current_round <- dbGetQuery(mta_con, "SELECT season,
-                                             max(round) as value
-                                      FROM mta_games
-                                      WHERE season IN (
-                                          SELECT max(season) as season
-                                          FROM mta_games
-                                          WHERE round is not null
-                                          AND league = 'League'
-                                      )
-                                      GROUP BY 1;")
-}
-
+# fetch all time league games
+games  = dbGetQuery(mta_con, statement = read_sql('games.sql'))
+events = dbGetQuery(mta_con, statement = read_sql('events.sql'))
+players  = dbGetQuery(mta_con, statement = read_sql('players.sql'))
+# fetch current league round
+current_round <- dbGetQuery(mta_con, statement = read_sql('current_season.sql'))
 
 dashboardPage(skin = "yellow",
   # header            
@@ -63,18 +44,18 @@ dashboardPage(skin = "yellow",
                     ),
         # filter 1: league round
         # type: slider
-                    sliderInput('round_id',
-                                'Round',
-                                min(games$round),
-                                max(games$round),
-                                current_round$value,
-                                1 ,
-                                '100%'),
+                    sliderInput(inputId = 'round_id',
+                                label = 'Round',
+                                min = min(games$round),
+                                max = max(games$round),
+                                value = c(1,current_round$value),
+                                step = 1,
+                                width = '100%'),
         # filter 2: Home/ Away
         # type: picker
                     pickerInput('location_id',
                                 'Location',
-                                choices=unique(games$location),
+                                choices = unique(games$location),
                                 selected = unique(games$location),
                                 options = list(`actions-box` = TRUE),
                                 multiple = T),

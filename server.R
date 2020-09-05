@@ -1,3 +1,12 @@
+source(paste0(getwd(),'/functions.r'))
+
+
+
+
+# required_packages <-  c('shinydashboard','jpeg','RPostgres','RPostgreSQL','formattable','plotly','purrr',
+#                         'tidyr','dplyr','reshape','rlang','lubridate','splitstackshape','ggplot2','shiny',
+#                         'shinythemes','shinydashboard','ggcharts','shinyWidgets','reshape2')
+
 # Required Packages
 {
   if (!require("shinydashboard")) install.packages("shinydashboard")
@@ -7,140 +16,73 @@
   if (!require("plotly")) install.packages("plotly")
   if (!require("purrr")) install.packages("purrr")
   if (!require('ggcharts')) install.packages("ggcharts") 
-  
-  # data prep
-  library(tidyr)
-  library(dplyr)
-  library(reshape2)
-  library(rlang)
-  library(purrr)
-  library(lubridate)
-  library(glue)
-  library(splitstackshape)
-  library(devtools)
-  library(patchwork)
-  # visualizations
-  library(ggplot2)
-  library(ggcharts)
-  library(plotly)
-  library(formattable)
-  # db connections
-  library(RPostgreSQL)
-  library(RPostgres)
-  # shiny
-  library(shiny)
-  library(shinyWidgets)
-  library(shinythemes)
-  library(shinydashboard)
 }
 
+lapply(required_packages, require, character.only = TRUE)
+
 # UI elements config
-{
-  cols = list(yellow='#ffeaa7',blue='#74b9ff',dark_yellow='#fdcb6e',dark_blue='#0984e3')  
-  params <- list(font = 'sans',fontface = 'plain')
-}
+cols <- list(yellow='#ffeaa7',blue='#74b9ff',dark_yellow='#fdcb6e',dark_blue='#0984e3')  
+params <- list(font = 'sans',fontface = 'plain')
 
 # DB connection
 mta_con <- dbConnect(Postgres(),
-                     user     = "fzgxltqkgmaklf",
-                     password = "6ad610f8f95f1f570ad6c846b68e74f0d692386a8e43d2fce5976f1718e2b779",
-                     dbname   = "d5m2p6kka0vf8d",
-                     port     = "5432",
-                     host     = "ec2-184-73-232-93.compute-1.amazonaws.com",
+                     user = "wwpnsvztdmbvwd",
+                     password = "a7935600679ff45222392366093733f1369e9b38029fd6577e8b462d4601930b",
+                     dbname = "dktq534bum4hj",
+                     port = "5432",
+                     host = "ec2-52-22-216-69.compute-1.amazonaws.com",
                      sslmode = 'require')
 
 # DB calls - fetch data
-{
-  
-  games  = dbGetQuery(mta_con,
-                      "SELECT *
-                       FROM mta_games
-                       WHERE league = 'League'")
-  
-  events = dbGetQuery(mta_con,
-                      "SELECT e.event_id,
-                              e.date,
-                              e.game_id,
-                              e.player_name,
-                              e.minute,
-                              g.round,
-                              g.league,
-                              g.season,
-                              g.game_result,
-                              g.location,
-                              g.opponent,
-                              g.coach,
-                              p.minutes_played,
-                              p.game_status
-                       FROM mta_events e
-                       INNER JOIN mta_games g ON (g.game_id = e.game_id)
-                       INNER JOIN mta_player_con p ON (p.game_id = e.game_id AND p.player_name = e.player_name)
-                       WHERE g.league = 'League'
-                       ORDER BY e.date, e.minute")
-  
-  players  = dbGetQuery(mta_con,
-                       "SELECT p.*,
-                               g.round,
-                               g.league,
-                               g.season,
-                               g.game_result,
-                               g.location,
-                               g.opponent,
-                               g.coach,
-                               e.event_id
-                        FROM mta_player_con p
-                        INNER JOIN mta_games g ON (g.game_id = p.game_id)
-                        LEFT JOIN mta_events e ON (g.game_id = e.game_id AND p.player_name = e.player_name)
-                        WHERE g.league = 'League'")
+games  = dbGetQuery(mta_con, statement = read_sql('games.sql'))
+events = dbGetQuery(mta_con, statement = read_sql('events.sql'))
+players  = dbGetQuery(mta_con, statement = read_sql('players.sql'))
+# fetch current league round
+current_season <- dbGetQuery(mta_con, statement = read_sql('current_season.sql'))
+# fetch coach nick names
+people <- dbGetQuery(mta_con, statement = read_sql("people.sql"))
 
-  # fetch current league round
-  current_season <- dbGetQuery(mta_con,"SELECT season,
-                                               max(round) as value
-                                        FROM mta_games
-                                        WHERE season IN (
-                                              SELECT max(season) as season
-                                              FROM mta_games
-                                              WHERE round is not null
-                                              AND league = 'League'
-                                          )
-                                        GROUP BY 1;")
-  # fetch coach nick names
-  people <- dbGetQuery(mta_con,"SELECT * 
-                                FROM people")
-}
-
+# current season - relevant player
+this_year_players <- players %>% 
+  filter(season == current_season$season) %>% 
+  distinct(player_name)
 
 function(input, output, session) {
 
   # reactive datasets
   # games dataset
+  
   dataInput <- reactive({
     games %>%
       filter(season %in% input$season_id,
-             round <= input$round_id,
+             round <= input$round_id[2],
+             round >= input$round_id[1],
              coach %in% input$coach_id,
              opponent %in% input$opponent_id,
              location %in% input$location_id)
   })
   
   # visual notes
-  please_note <- reactive({paste0('League games, rounds 1-',input$round_id) })
-  
+  please_note <- reactive({paste0('League games, rounds ',
+                                  input$round_id[1],
+                                  '-',
+                                  input$round_id[2]) })
   # players dataset
   dataPlayers <- reactive({
     players %>%
       filter(season %in% input$season_id,
-             round <= input$round_id,
+             round <= input$round_id[2],
+             round >= input$round_id[1],
              coach %in% input$coach_id,
              opponent %in% input$opponent_id,
              location %in% input$location_id)
   })
-  
   # goals dataset
   u_goals_data <- reactive({ 
     events %>% 
       filter(season %in% input$season_id,
-             round <= input$round_id,
+             round <= input$round_id[2],
+             round >= input$round_id[1],
              coach %in% input$coach_id,
              opponent %in% input$opponent_id,
              location %in% input$location_id)
@@ -224,7 +166,7 @@ function(input, output, session) {
                 goal_scored = sum(mta_score),
                 goal_conceeded = sum(opponent_score),
                 pct_of_success = sum(points)*100/(n()*3)) %>%
-      melt(id = 'season')
+      reshape2::melt(id = 'season')
     
     # only goals
     gg_1_goals <- gg_1 %>% 
@@ -262,7 +204,7 @@ function(input, output, session) {
       summarise(points = sum(points),goal_scored = sum(mta_score),
                 goal_conceeded = sum(opponent_score),
                 pct_of_success = sum(points)*100/(n()*3)) %>%
-      melt(id = 'season')
+      reshape2::melt(id = 'season')
     
     # setting the ratio between geom_bar to the geom_line hight
     ratio_factor <- (max(gg_1$value[gg_1$variable == 'pct_of_success'])/max(gg_1$value[gg_1$variable == 'points'])) - 0.2
@@ -347,7 +289,7 @@ function(input, output, session) {
                 goal_scored = sum(mta_score),
                 goal_conceeded = sum(opponent_score),
                 pct_of_success = sum(points)*100/(n()*3),
-                games = n()) %>% melt(id = 'coach') 
+                games = n()) %>% reshape2::melt(id = 'coach') 
     
     gg_coach <-
       gg_coach_pre %>%
@@ -430,6 +372,7 @@ function(input, output, session) {
     
     formattable(games_table,
                 align = rep('c',ncol(games_table)),
+                
                 list(`Season` = formatter('span'),
                      `Winner` = improvement_formatter,
                      `Home` =formatter('span',style = x ~ ifelse(x == 'MTA',"font-size:8px;","font-size:8px;")),
@@ -506,11 +449,11 @@ function(input, output, session) {
       ungroup() %>% filter(minutes>0)
     
     # ranking seasons by years
-    season_name = sort(unique(g_minutes$season))
-    len = length(season_name)
+    season_name <- sort(unique(g_minutes$season))
+    len <- length(season_name)
     
     # name location, based on season relavncy
-    season_weight = tibble(season = season_name,
+    season_weight <- tibble(season = season_name,
                            rank = rank(desc(season_name))) %>%
       mutate(weight = case_when(rank == 1 ~ round(len/3)/len,
                                 rank == 2 ~ round(len/4)/len,
@@ -528,10 +471,10 @@ function(input, output, session) {
     
     g_minutes$player_name <- factor(g_minutes$player_name,levels = minutes_order$player_name)
     
-    this_year_players <- g_minutes %>% 
-      filter(season %in% (season_weight %>% filter(rank %in% 1:3))$season,
-             minutes > 90) %>% 
-      distinct(player_name)
+    # this_year_players <- g_minutes %>% 
+    #   filter(season %in% (season_weight %>% filter(rank %in% 1:3))$season,
+    #          minutes > 90) %>% 
+    #   distinct(player_name)
     
     ggplot(g_minutes %>% 
              filter(player_name %in% this_year_players$player_name),
@@ -557,11 +500,11 @@ function(input, output, session) {
     g_goals <- dataPlayers() %>% 
       filter(is_played == T) %>%
       group_by(season,player_name) %>% 
-      summarise(goals = sum(!is.na(event_id))) %>% 
+      summarise(goals = sum(!is.na(event_type))) %>% 
       ungroup()
     
-    season_name = sort(unique(g_goals$season))
-    len = length(season_name)
+    season_name <- sort(unique(g_goals$season))
+    len <- length(season_name)
     
     season_weight = tibble(season = season_name,
                            rank = rank(desc(season_name))) %>%
@@ -573,14 +516,15 @@ function(input, output, session) {
                                            round(len/6))/(len - 3))/len
       ))
     
-    goals_order <- g_goals %>% group_by(player_name) %>%
+    goals_order <- g_goals %>% 
+      group_by(player_name) %>%
       summarise(goals = sum(goals[season == current_season$season])) %>%
       arrange(goals)
 
     goals_adj <- g_goals %>% mutate(player_name = factor(player_name,levels = goals_order$player_name))
 
-    this_year_players <- goals_adj %>% filter(season == current_season$season) %>% distinct(player_name)
-
+    #this_year_players <- goals_adj %>% filter(season == current_season$season) %>% distinct(player_name)
+    
     ggplot(goals_adj %>% filter(player_name %in% this_year_players$player_name,goals>0),
            aes(x=player_name,y=goals,fill=season)) +
       geom_bar(stat='identity',
@@ -606,9 +550,10 @@ function(input, output, session) {
   # goal scored - legacy players  
   output$p_goals_legacy <- renderPlot({
     
-    g_goals <- dataPlayers() %>% filter(is_played == T) %>%
+    g_goals <- dataPlayers() %>% 
+      filter(is_played == T) %>%
       group_by(season,player_name) %>% 
-      summarise(goals = sum(!is.na(event_id))) %>% 
+      summarise(goals = sum(!is.na(event_type))) %>% 
       ungroup()
     
     season_name = sort(unique(g_goals$season))
@@ -668,8 +613,16 @@ function(input, output, session) {
       distinct(player_name,.keep_all = T) %>%
       summarise(scorers = n_distinct(player_name))
 
-    all = u_goals %>% filter(game_status != 'substitute') %>% group_by(season) %>% summarise(scorers = sum(scorers)) %>% mutate(type = 'Total scorers')
-    sub = u_goals %>% filter(game_status == 'substitute') %>% select(season,scorers) %>% mutate(type = 'Scorers as a sub')
+    all = u_goals %>% 
+      filter(game_status != 'substitute') %>% 
+      group_by(season) %>% 
+      summarise(scorers = sum(scorers)) %>% 
+      mutate(type = 'Total scorers')
+    
+    sub = u_goals %>% 
+      filter(game_status == 'substitute') %>% 
+      select(season,scorers) %>% 
+      mutate(type = 'Scorers as a sub')
     
     u_goals = bind_rows(all,sub)
     
